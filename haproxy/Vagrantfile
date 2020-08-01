@@ -3,12 +3,12 @@
 
 Vagrant.configure(2) do |config|
     common = <<-SHELL
-    if ! grep -q deploykub /etc/hosts; then  sudo echo "192.168.6.120     deploykub" >> /etc/hosts ;fi
-    if ! grep -q node01 /etc/hosts; then  sudo echo "192.168.6.121     node01" >> /etc/hosts ;fi
-    if ! grep -q node02 /etc/hosts; then  sudo echo "192.168.6.122     node02" >> /etc/hosts ;fi
-    if ! grep -q node03 /etc/hosts; then  sudo echo "192.168.6.123     node03" >> /etc/hosts ;fi
-    if ! grep -q node04 /etc/hosts; then  sudo echo "192.168.6.124     node04" >> /etc/hosts ;fi
-    if ! grep -q node05 /etc/hosts; then  sudo echo "192.168.6.125     node05" >> /etc/hosts ;fi
+    if ! grep -q kdeploykub /etc/hosts; then  sudo echo "192.168.7.120     kdeploykub" >> /etc/hosts ;fi
+    if ! grep -q kmaster01 /etc/hosts; then  sudo echo "192.168.7.121     kmaster01" >> /etc/hosts ;fi
+    if ! grep -q kmaster02 /etc/hosts; then  sudo echo "192.168.7.122     kmaster02" >> /etc/hosts ;fi
+    if ! grep -q knode01 /etc/hosts; then  sudo echo "192.168.7.123     knode01" >> /etc/hosts ;fi
+    if ! grep -q haproxy01 /etc/hosts; then  sudo echo "192.168.7.124     haproxy01" >> /etc/hosts ;fi
+    if ! grep -q haproxy02 /etc/hosts; then  sudo echo "192.168.7.125     haproxy02" >> /etc/hosts ;fi
     #if ! id admin >  /dev/null 2>&1 ; then sudo useradd -G 10 -p $(openssl passwd -1 redhat) admin; fi
     #if [ ! -f /etc/sudoers.d/admin ] ; then sudo echo "admin        ALL=(ALL)       NOPASSWD: ALL" > /etc/sudoers.d/admin ; fi
     sudo yum -y install vim tree net-tools telnet git python3-pip sshpass
@@ -17,87 +17,69 @@ Vagrant.configure(2) do |config|
     systemctl reload sshd
     SHELL
     
+    kdeploykub = <<-SHELL
+    pip3 install --user ansible
+    git clone https://github.com/kubernetes-sigs/kubespray.git /home/vagrant/kubespray
+    pip3 install --user -r /home/vagrant/kubespray/requirements.txt
+    echo "[privilege_escalation]" >> /home/vagrant/kubespray/ansible.cfg
+    echo "become=True" >> /home/vagrant/kubespray/ansible.cfg
+    echo "become_method=sudo" >> /home/vagrant/kubespray/ansible.cfg
+    echo "become_user=sudo" >> /home/vagrant/kubespray/ansible.cfg
+    echo "become_ask_pass=False" >> /home/vagrant/kubespray/ansible.cfg
+    cp -rfp inventory/sample inventory/cluster
+    declare -a IPS=(192.168.7.121 192.168.7.122 192.168.7.123)
+    CONFIG_FILE=inventory/cluster/hosts.yaml python3 contrib/inventory_builder/inventory.py ${IPS[@]}
+    SHELL
+
+    haproxy = <<-SHELL
+    sudo yum install -y keepalived haproxy psmisc.x86_64
+    setsebool -P haproxy_connect_any=1
+    SHELL
+
+    haproxy_restart = <<-SHELL
+    sudo systemctl restart haproxy
+    sudo systemctl restart keepalived
+    SHELL
+
+    config.vm.box = "centos/7"
+    config.vm.box_url = "centos/7"
   
-      config.vm.box = "centos/7"
-      config.vm.box_url = "centos/7"
-  
-      config.vm.define "deploykub" do |control|
-          control.vm.hostname = "deploykub"
-          control.vm.network "private_network", ip: "192.168.6.120"
-          control.vm.provider "virtualbox" do |v|
+      config.vm.define "haproxy01" do |haproxy01|
+        haproxy01.vm.hostname = "haproxy01"
+        haproxy01.vm.network "private_network", ip: "192.168.7.124"
+        haproxy01.vm.provider "virtualbox" do |v|
             v.customize [ "modifyvm", :id, "--cpus", "1" ]
             v.customize [ "modifyvm", :id, "--memory", "512" ]
             v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
             v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-            v.customize ["modifyvm", :id, "--name", "deploykub"]
+            v.customize ["modifyvm", :id, "--name", "haproxy01"]
             v.customize ["modifyvm", :id, "--audio", "none"]
-          end
-          #config.vm.synced_folder ENV['HOST_DIR'], ENV['DEPLOY_DIR']
-          config.vm.provision :shell, :inline => common
+        end
+        config.vm.provision :shell, :inline => common
+        config.vm.provision :shell, :inline => haproxy
+        config.vm.provision "file", source: "haproxy.cfg", destination: "/tmp/haproxy.cfg"          
+        config.vm.provision "shell", inline: "mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg"
+        config.vm.provision "file", source: "keepalived_master.conf", destination: "/tmp/keepalived.conf"
+        config.vm.provision "shell", inline: "mv /tmp/keepalived.conf /etc/keepalived/keepalived.conf"
+        config.vm.provision :shell, :inline => haproxy_restart
       end
-      config.vm.define "node01" do |node1|
-          node1.vm.hostname = "node01"
-          node1.vm.network "private_network", ip: "192.168.6.121"
-          node1.vm.provider "virtualbox" do |v|
-              v.customize [ "modifyvm", :id, "--cpus", "1" ]
-              v.customize [ "modifyvm", :id, "--memory", "2048" ]
-              v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-              v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-              v.customize ["modifyvm", :id, "--name", "node01"]
-              v.customize ["modifyvm", :id, "--audio", "none"]
-          end
-          config.vm.provision :shell, :inline => common
-      end
-      config.vm.define "node02" do |node2|
-          node2.vm.hostname = "node02"
-          node2.vm.network "private_network", ip: "192.168.6.122"
-          node2.vm.provider "virtualbox" do |v|
-              v.customize [ "modifyvm", :id, "--cpus", "1" ]
-              v.customize [ "modifyvm", :id, "--memory", "2048" ]
-              v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-              v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-              v.customize ["modifyvm", :id, "--name", "node02"]
-              v.customize ["modifyvm", :id, "--audio", "none"]
-          end
-          config.vm.provision :shell, :inline => common
-      end
-      config.vm.define "node03" do |node3|
-          node3.vm.hostname = "node03"
-          node3.vm.network "private_network", ip: "192.168.6.123"
-          node3.vm.provider "virtualbox" do |v|
-              v.customize [ "modifyvm", :id, "--cpus", "1" ]
-              v.customize [ "modifyvm", :id, "--memory", "2048" ]
-              v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-              v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-              v.customize ["modifyvm", :id, "--name", "node03"]
-              v.customize ["modifyvm", :id, "--audio", "none"]
-          end
-          config.vm.provision :shell, :inline => common
-      end
-      config.vm.define "node04" do |node4|
-          node4.vm.hostname = "node04"
-          node4.vm.network "private_network", ip: "192.168.6.124"
-          node4.vm.provider "virtualbox" do |v|
-              v.customize [ "modifyvm", :id, "--cpus", "1" ]
-              v.customize [ "modifyvm", :id, "--memory", "2048" ]
-              v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-              v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-              v.customize ["modifyvm", :id, "--name", "node04"]
-              v.customize ["modifyvm", :id, "--audio", "none"]
-          end
-          config.vm.provision :shell, :inline => common
-      end
-      config.vm.define "node05" do |node5|
-          node5.vm.hostname = "node05"
-          node5.vm.network "private_network", ip: "192.168.6.125"
-          node5.vm.provider "virtualbox" do |v|
-              v.customize [ "modifyvm", :id, "--cpus", "1" ]
-              v.customize [ "modifyvm", :id, "--memory", "2048" ]
-              v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-              v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-              v.customize ["modifyvm", :id, "--name", "node05"]
-              v.customize ["modifyvm", :id, "--audio", "none"]
-          end
-          config.vm.provision :shell, :inline => common
-      end
+      config.vm.define "haproxy02" do |haproxy02|
+            haproxy02.vm.hostname = "haproxy02"
+            haproxy02.vm.network "private_network", ip: "192.168.7.125"
+            haproxy02.vm.provider "virtualbox" do |v|
+                v.customize [ "modifyvm", :id, "--cpus", "1" ]
+                v.customize [ "modifyvm", :id, "--memory", "512" ]
+                v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+                v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+                v.customize ["modifyvm", :id, "--name", "haproxy02"]
+                v.customize ["modifyvm", :id, "--audio", "none"]
+            end
+            config.vm.provision :shell, :inline => common
+            config.vm.provision :shell, :inline => haproxy
+            config.vm.provision "file", source: "haproxy.cfg", destination: "/tmp/haproxy.cfg"          
+            config.vm.provision "shell", inline: "mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg"
+            config.vm.provision "file", source: "keepalived_backup.conf", destination: "/tmp/keepalived.conf"
+            config.vm.provision "shell", inline: "mv /tmp/keepalived.conf /etc/keepalived/keepalived.conf"
+            config.vm.provision :shell, :inline => haproxy_restart
+        end
   end
