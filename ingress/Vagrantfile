@@ -54,7 +54,7 @@ Vagrant.configure(2) do |config|
             if node[:type] == "deploy"
                 node_config.vm.provision :shell, :path => 'install_common.sh'
                 node_config.vm.provision :shell, :path => 'install_kubespray.sh'
-                #node_config.vm.provision :shell, :path => 'install_hello.sh'
+                node_config.vm.provision :shell, :path => 'install_hello.sh'
             end
             
         end #end config
