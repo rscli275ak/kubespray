@@ -37,9 +37,21 @@ echo "kube-node">>kubespray/inventory/cluster/inventory.ini
 echo "calico-rr">>kubespray/inventory/cluster/inventory.ini
 }
 
-install_loadbalancer(){
+active_ingress_controller(){
 echo
-echo "TASK - Ansible - Activate external LB"
+echo "TASK - Ansible - Activate Ingress controller"
+sed -i s/"ingress_nginx_enabled: false"/"ingress_nginx_enabled: true"/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+sed -i s/"# ingress_nginx_host_network: false"/"# ingress_nginx_host_network: true"/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+sed -i s/"# ingress_nginx_nodeselector:"/"ingress_nginx_nodeselector:"/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+sed -i s/"#   kubernetes.io\/os: \"linux\""/"  kubernetes.io\/os: \"linux\""/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+sed -i s/"# ingress_nginx_namespace: \"ingress-nginx\""/"ingress_nginx_namespace: \"ingress-nginx\""/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+sed -i s/"# ingress_nginx_insecure_port: 80"/"ingress_nginx_insecure_port: 80"/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+sed -i s/"# ingress_nginx_secure_port: 443"/"ingress_nginx_secure_port: 443"/g kubespray/inventory/cluster/group_vars/k8s-cluster/addons.yml
+}
+
+active_loadbalancer(){
+echo
+echo "TASK - Ansible - Activate external load balancer"
 sed -i s/"## apiserver_loadbalancer_domain_name: \"elb.some.domain\""/"apiserver_loadbalancer_domain_name: \"elb.kub\""/g kubespray/inventory/cluster/group_vars/all/all.yml
 sed -i s/"# loadbalancer_apiserver:"/"loadbalancer_apiserver:"/g kubespray/inventory/cluster/group_vars/all/all.yml
 sed -i s/"#   address: 1.2.3.4"/"  address: ${IP_HAPROXY}"/g kubespray/inventory/cluster/group_vars/all/all.yml
@@ -88,7 +100,8 @@ sudo su - vagrant bash -c "source ~/.bashrc"
 }
 
 prepare_kubespray
-install_loadbalancer
+active_ingress_controller
+active_loadbalancer
 create_ssh_keys
 install_kubespray
 install_kubectl

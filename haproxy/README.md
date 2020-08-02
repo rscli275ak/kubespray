@@ -20,3 +20,16 @@ Le [VagrantFile](VagrantFile) ne permet que de déclarer les VMs. Pas d'initiali
 ### Test cluster-info
 
     [vagrant@kdeploy ~]$ kubectl cluster-info
+    [vagrant@kdeploy ~]$ kubectl get nodes -o wide
+
+### Ingress
+
+    [vagrant@kdeploy ~]$ kubectl get ns
+    [vagrant@kdeploy ~]$ kubectl get all -n ingress-nginx
+
+    curl 192.168.7.120
+
+Ou http://192.168.7.120:9000/stats
+
+
+
