@@ -1,0 +1,62 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+
+    etcHosts = ""
+
+    config.vm.box = "ubuntu/bionic64"
+    config.vm.box_url = "ubuntu/bionic64"
+
+    NODES = [
+        { :hostname => 'haproxy', :ip => "192.168.7.120", :cpus => 1, :mem => 512, :type => "haproxy" },
+        { :hostname => 'kmaster', :ip => "192.168.7.121", :cpus => 2, :mem => 4096, :type => "kub" },
+        { :hostname => 'knode1', :ip => "192.168.7.122", :cpus => 1, :mem => 2048, :type => "kub" },
+        { :hostname => 'knode2', :ip => "192.168.7.123", :cpus => 1, :mem => 2048, :type => "kub" },
+        { :hostname => 'kdeploy', :ip => "192.168.7.124", :cpus => 1, :mem => 512, :type => "deploy" },
+    ]
+
+    # Complete /etc/hosts file for each node
+    NODES.each do |node|
+        if node[:type] != "haproxy"
+            etcHosts += "echo '" + node[:ip] + "    " + node[:hostname] + "' >> /etc/hosts" + "\n"     
+        else
+            etcHosts += "echo '" + node[:ip] + "    " + node[:hostname] + " elb.kub' >> /etc/hosts" + "\n"
+        end
+    end #end NODES
+    
+    NODES.each do |node|
+        config.vm.define node[:hostname] do |node_config|
+            node_config.vm.hostname = node[:hostname]
+            node_config.vm.network "private_network", ip: node[:ip]
+            node_config.vm.provider "virtualbox" do |v|
+                v.customize ["modifyvm", :id, "--cpus", node[:cpus] ]
+                v.customize ["modifyvm", :id, "--memory", node[:mem] ]
+                v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+                v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+                v.customize ["modifyvm", :id, "--name", node[:hostname] ]
+            end # end provider
+
+            # Update /etc/hosts for all
+            node_config.vm.provision :shell, :inline => etcHosts
+
+            # Update haProxy configuration
+            if node[:type] == "haproxy"
+                node_config.vm.provision :shell, :path => 'install_haproxy.sh'
+            end
+
+            # Install for nodes
+            if node[:type] == "kub"
+                node_config.vm.provision :shell, :path => 'install_common.sh'
+            end
+
+            # Install kubespray
+            if node[:type] == "deploy"
+                node_config.vm.provision :shell, :path => 'install_common.sh'
+                node_config.vm.provision :shell, :path => 'install_kubespray.sh'
+                #node_config.vm.provision :shell, :path => 'install_hello.sh'
+            end
+            
+        end #end config
+    end #end NODES
+end #end Vagrant
