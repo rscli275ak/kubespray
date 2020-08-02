@@ -80,8 +80,16 @@ echo "TASK - Copy kubectl cert"
 ssh -o StrictHostKeyChecking=no -i /home/vagrant/.ssh/id_rsa vagrant@${IP_KMASTER} "sudo cat /etc/kubernetes/admin.conf" >/home/vagrant/.kube/config
 }
 
+set_autocompletion(){
+echo
+echo "TASK - set autocompletion for kubectl"
+sudo su - vagrant bash -c "echo 'source <(kubectl completion bash)' >> ~/.bashrc"
+sudo su - vagrant bash -c "source ~/.bashrc"
+}
+
 prepare_kubespray
 install_loadbalancer
 create_ssh_keys
 install_kubespray
 install_kubectl
+set_autocompletion
