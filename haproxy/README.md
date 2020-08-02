@@ -48,38 +48,47 @@ Modifier le fichier `inventory/cluster/hosts.yaml` :
 
     all:
         hosts:
-            kmaster01:
-            ansible_host: 192.168.7.121
-            ip: 192.168.7.121
-            access_ip: 192.168.7.121
-            kmaster02:
-            ansible_host: 192.168.7.122
-            ip: 192.168.7.122
-            access_ip: 192.168.7.122
-            knode01:
-            ansible_host: 192.168.7.123
-            ip: 192.168.7.123
-            access_ip: 192.168.7.123
+        kmaster01:
+        ansible_host: 192.168.7.121
+        ip: 192.168.7.121
+        access_ip: 192.168.7.121
+        kmaster02:
+        ansible_host: 192.168.7.122
+        ip: 192.168.7.122
+        access_ip: 192.168.7.122
+        knode01:
+        ansible_host: 192.168.7.123
+        ip: 192.168.7.123
+        access_ip: 192.168.7.123
         children:
             kube-master:
             hosts:
-                kmaster01:
-                kmaster02:
+              kmaster01:
+              kmaster02:
             kube-node:
             hosts:
-                knode01:
+              knode01:
             etcd:
             hosts:
-                kmaster01:
-                kmaster02:
-                knode01:
+              kmaster01:
+              kmaster02:
+              knode01:
             k8s-cluster:
             children:
-                kube-master:
-                kube-node:
+              kube-master:
+              kube-node:
             calico-rr:
             hosts: {}
 
+
+### Déclarer le LoadBalancer local :
+
+Modifier le fichier `inventory/cluster/group_vars/all/all.yml` :
+
+    apiserver_loadbalancer_domain_name: "elb.kub"
+    loadbalancer_apiserver:
+        address: 192.168.7.130
+        port: 6443
 
 ### Lancer l'installation du cluster
 
